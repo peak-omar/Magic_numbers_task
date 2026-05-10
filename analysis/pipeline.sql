@@ -1,25 +1,4 @@
--- Annie's Magic Numbers — analytical pipeline
---
--- Runs in three logical stages: ingest, transform, report.
--- We persist tables to a DuckDB file so re-runs are cheap; only the first
--- run pays the CSV-parse cost (the sales file alone is ~1.7 GB).
---
--- The orchestrator substitutes the placeholders __SRC__ (input CSV dir)
--- and __OUT__ (where reports land) before this script reaches DuckDB.
--- That keeps the SQL portable while sidestepping the fact that DuckDB's
--- COPY ... TO does not accept variable-bound paths.
-
--- ---------------------------------------------------------------------------
 -- 1. Ingest
--- ---------------------------------------------------------------------------
--- Only the three files we actually need for product/brand P&L:
---   * 2017PurchasePricesDec.csv  — fallback unit cost when a SKU was sold
---                                  but never purchased in-period
---   * PurchasesFINAL12312016.csv — actual 2016 purchases (line level)
---   * SalesFINAL12312016.csv     — actual 2016 sales      (line level)
---
--- Beg/End inventory tables are loaded too, but only as a sanity check at
--- the end — they are not on the critical path of the per-SKU calculation.
 
 CREATE OR REPLACE TABLE catalog AS
     SELECT * FROM read_csv_auto('__SRC__/2017PurchasePricesDec.csv', header=true);
@@ -36,14 +15,8 @@ CREATE OR REPLACE TABLE beg_inv AS
 CREATE OR REPLACE TABLE end_inv AS
     SELECT * FROM read_csv_auto('__SRC__/EndInvFINAL12312016.csv', header=true);
 
-
--- ---------------------------------------------------------------------------
 -- 2. Transform
--- ---------------------------------------------------------------------------
--- Cost per (Brand, Size).  Preferred source is the weighted-average price
--- Annie actually paid in 2016; fall back to the catalog's PurchasePrice if
--- a SKU was sold but never purchased in-period (happens when a SKU sells
--- down from beginning inventory and is not re-ordered).
+
 CREATE OR REPLACE TABLE cost_lookup AS
 WITH purchased_avg AS (
     SELECT Brand,
@@ -69,9 +42,6 @@ FULL OUTER JOIN catalog_cost cc
        ON cc.Brand = pa.Brand
       AND cc.Size  = pa.Size;
 
-
--- Per-SKU P&L (a "product" is a Brand + Size combination — that is the
--- actual stocking unit).
 CREATE OR REPLACE TABLE product_pnl AS
 SELECT
     s.Brand,
@@ -87,8 +57,7 @@ SELECT
                  / NULLIF(SUM(s.SalesDollars), 0), 2)                                       AS gross_margin_pct,
     ROUND(100.0 * (SUM(s.SalesDollars) - SUM(s.SalesQuantity * cl.unit_cost) - SUM(s.ExciseTax))
                  / NULLIF(SUM(s.SalesDollars), 0), 2)                                       AS net_margin_pct,
-    -- bool_or is true if any sales row had no matching cost — flags that
-    -- the COGS for this SKU is understated.
+
     BOOL_OR(cl.unit_cost IS NULL)                                                           AS has_missing_cost
 FROM sales s
 LEFT JOIN cost_lookup cl
@@ -97,11 +66,6 @@ LEFT JOIN cost_lookup cl
 GROUP BY s.Brand, s.Size;
 
 
--- "Brand" in this dataset is actually a SKU identifier: e.g. Brand=58
--- maps 1:1 to "Gekkeikan Black & Gold Sake".  When Annie says "brand" she
--- almost certainly means the product family across pack sizes (e.g. "Jim
--- Beam" 750mL + 1.75L combined).  We roll up by Brand id, ignoring Size,
--- and pick a representative description.
 CREATE OR REPLACE TABLE brand_pnl AS
 SELECT
     Brand,
@@ -118,17 +82,7 @@ SELECT
 FROM product_pnl
 GROUP BY Brand;
 
-
--- ---------------------------------------------------------------------------
 -- 3. Report — write the four ranking tables and the two drop lists
--- ---------------------------------------------------------------------------
--- Margin rankings carry a minimum-revenue filter so that a single $20 sale
--- with a fluky 95 % margin does not crowd out genuinely profitable SKUs.
--- They also exclude SKUs where any sales row had no cost match
--- (has_missing_cost) and where the resulting COGS rounds to zero — both
--- are almost always cost-lookup holes masquerading as 99 % margins, not
--- actual home-run products.  The thresholds are deliberately conservative
--- — Annie can relax them.
 
 COPY (
     SELECT Brand, Size, Description, units_sold, revenue, cogs,
@@ -169,11 +123,6 @@ COPY (
 ) TO '__OUT__/top10_brands_by_margin.csv' (HEADER, DELIMITER ',');
 
 
--- Drop list: a SKU/brand is a candidate for de-listing if it lost money
--- in 2016 *and* sold enough volume that the loss was not noise.
---   * units_sold >= 12   — at least monthly cadence; rules out one-off
---                          mis-prices
---   * revenue   >= 500   — meaningful dollars at risk
 COPY (
     SELECT Brand, Size, Description, units_sold, revenue, cogs, excise_tax,
            gross_profit, net_profit, gross_margin_pct, net_margin_pct,
@@ -198,16 +147,8 @@ COPY (
 ) TO '__OUT__/drop_candidates_brands.csv' (HEADER, DELIMITER ',');
 
 
--- ---------------------------------------------------------------------------
 -- 4. Sanity checks — written to stdout for the orchestrator to capture
--- ---------------------------------------------------------------------------
--- (a) Inventory roll-forward at cost basis:
---         BegInv$ + Purchases$ - EndInv$  ≈  COGS$
---     The Price column in beg/end inventory is the retail shelf price,
---     so we revalue inventory at our cost_lookup unit_cost to keep both
---     sides on the same basis.  A modest gap is expected (shrinkage,
---     mid-year cost shifts, the small slice of unreconciled SKUs).
--- (b) Coverage: how many sales rows / dollars hit a NULL unit cost.
+
 
 WITH beg AS (
     SELECT ROUND(SUM(b.onHand * cl.unit_cost), 2) AS dollars
