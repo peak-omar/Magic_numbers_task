@@ -159,25 +159,7 @@ def render_report(checks: dict[str, dict[str, str]]) -> str:
     rollforward  = checks.get("inventory_rollforward", {})
 
     md = []
-    md.append("# Annie's 2016 Profit & Margin Report\n")
-    md.append(
-        f"_Generated {dt.datetime.now():%Y-%m-%d %H:%M} from "
-        f"{SRC_DIR.name}/ — covers calendar year 2016._\n"
-    )
 
-    md.append("## Headline numbers\n")
-    if totals:
-        md.append(textwrap.dedent(f"""
-            | Metric        | Value |
-            |---------------|------:|
-            | Revenue       | {_fmt_money(totals.get('revenue', 0))} |
-            | COGS          | {_fmt_money(totals.get('cogs', 0))} |
-            | Excise tax    | {_fmt_money(totals.get('excise_tax', 0))} |
-            | Gross profit  | {_fmt_money(totals.get('gross_profit', 0))} |
-            | Net profit    | {_fmt_money(totals.get('net_profit', 0))} |
-            | Gross margin  | {_fmt_pct(totals.get('gross_margin_pct', 0))} |
-            | Net margin    | {_fmt_pct(totals.get('net_margin_pct', 0))} |
-        """).strip() + "\n")
 
     md.append("\n## 1. Top 10 products by profit ($)\n")
     md.append(_md_table(_read_csv(OUT_DIR / "top10_products_by_profit.csv"), PRODUCT_COLS))

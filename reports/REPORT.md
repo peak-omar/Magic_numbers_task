@@ -1,15 +1,3 @@
-# Annie's 2016 Profit & Margin Report
-_Generated 2026-05-09 21:32 from src/ — covers calendar year 2016._
-## Headline numbers
-| Metric        | Value |
-|---------------|------:|
-| Revenue       | $452,062,952 |
-| COGS          | $313,371,928 |
-| Excise tax    | $18,974,241 |
-| Gross profit  | $138,671,542 |
-| Net profit    | $119,697,817 |
-| Gross margin  | 30.7% |
-| Net margin    | 26.5% |
 
 ## 1. Top 10 products by profit ($)
 | Brand | Size | Product | Units | Revenue | COGS | Net $ | Net % |
