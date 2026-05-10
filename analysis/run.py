@@ -1,29 +1,5 @@
 #!/usr/bin/env python3
-"""
-Annie's Magic Numbers — orchestrator.
 
-Runs the DuckDB SQL pipeline against the 2016 sales / purchases / inventory
-CSVs, then renders a human-readable Markdown summary on top of the CSV
-outputs the SQL produced.
-
-Why a thin Python wrapper over a SQL pipeline (rather than pandas / pure
-SQL CLI / a notebook):
-
-  * The sales file is ~1.7 GB.  DuckDB streams the CSV with a vectorized
-    columnar engine; pandas would have to load it row-wise into RAM and
-    we would spend more time fighting dtype inference than analyzing.
-  * Keeping the analytics logic in one .sql file means a SQL-fluent
-    analyst (Annie's accountant?) can audit the math without reading
-    Python.  The Python here is glue: paths, rendering, sanity-check
-    formatting.
-  * No third-party Python deps — only the stdlib + the DuckDB CLI binary.
-    Survives Python version churn (the local Python is a 3.15 alpha that
-    has no DuckDB wheel, which is precisely the kind of thing that bites
-    you a year after deploy).
-
-Run:
-    python analysis/run.py
-"""
 
 from __future__ import annotations
 
@@ -44,24 +20,18 @@ DUCKDB   = ROOT / "bin" / "duckdb.exe"   # Windows in this environment
 
 
 def _resolve_duckdb() -> str:
-    """Prefer the bundled CLI under ./bin; fall back to PATH."""
     if DUCKDB.exists():
         return str(DUCKDB)
     on_path = shutil.which("duckdb")
     if on_path:
         return on_path
     sys.exit(
-        "duckdb CLI not found. Place the binary at "
         f"{DUCKDB} or put it on PATH."
     )
 
 
 def _render_sql() -> str:
-    """Substitute the path placeholders in pipeline.sql.
 
-    DuckDB's COPY ... TO does not accept bound variables, so we cannot use
-    SET VARIABLE; plain text substitution is the simplest correct option.
-    """
     sql = SQL_FILE.read_text(encoding="utf-8")
     # Forward slashes so the same SQL works on Windows and POSIX.
     sql = sql.replace("__SRC__", str(SRC_DIR).replace("\\", "/"))
@@ -77,8 +47,6 @@ def run_pipeline() -> str:
     started = dt.datetime.now()
     print(f"[{started:%H:%M:%S}] running pipeline against {SRC_DIR} ...")
 
-    # `-c` would force one statement; we feed the multi-statement script on
-    # stdin instead.  `-csv -header` makes the trailing sanity-check SELECTs
     # come back as parseable CSV.
     proc = subprocess.run(
         [duckdb, "-csv", "-header", str(DB_PATH)],
@@ -96,19 +64,8 @@ def run_pipeline() -> str:
     return proc.stdout
 
 
-# ---------------------------------------------------------------------------
-# Markdown rendering
-# ---------------------------------------------------------------------------
-
 def _parse_check_blocks(stdout: str) -> dict[str, dict[str, str]]:
-    """Parse the trailing sanity-check SELECTs back from the DuckDB CLI.
 
-    DuckDB's CLI in `-csv -header` mode prints each SELECT's header row
-    followed by its data rows with no blank-line separator.  We can't rely
-    on whitespace, so we anchor on the literal string ``check_name`` —
-    every sanity-check SELECT is shaped to emit that as its first column,
-    so any line whose first cell is exactly ``check_name`` is a header.
-    """
     blocks: dict[str, dict[str, str]] = {}
     current_header: list[str] | None = None
     for raw in stdout.splitlines():
@@ -150,7 +107,6 @@ def _fmt_pct(s: str | float | int) -> str:
 
 
 def _md_table(rows: list[dict[str, str]], cols: list[tuple[str, str, str]]) -> str:
-    """cols: list of (header_label, source_key, format_kind)."""
     if not rows:
         return "_(no rows)_\n"
     headers = [c[0] for c in cols]
