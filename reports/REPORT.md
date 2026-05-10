@@ -119,27 +119,3 @@ _...110 more rows in [drop_candidates_products.csv](drop_candidates_products.csv
 | 25937 | Cavit Select Red Blend | 1,019 | $6,526 | $10,536 | $-4,239 | -65.0% |
 
 _...97 more rows in [drop_candidates_brands.csv](drop_candidates_brands.csv)._
-
-## Sanity checks
-**Inventory roll-forward at cost basis** —
-BegInv + Purchases - EndInv should approximate the COGS we
-computed per-SKU.  A small gap is expected (shrinkage, mid-year
-cost drift, the handful of unreconciled SKUs).
-
-| Component | Value |
-|-----------|------:|
-| Beginning inventory @ cost | $46,894,546 |
-| Purchases @ cost           | $321,900,766 |
-| Ending inventory @ cost    | $55,423,263 |
-| Implied COGS               | $313,372,049 |
-| Computed COGS (per-SKU)    | $313,371,928 |
-| Variance vs. roll-forward  | -0.0% |
-**Cost-lookup coverage** — sales rows where we could not find a
-unit cost (these are excluded from drop-candidate lists, but
-are included in totals with COGS=0 — so totals slightly
-overstate profit):
-
-* Sales rows with missing cost: **295**
-  of 12,825,363
-  (0.0%)
-* Revenue with missing cost: **$19,482**

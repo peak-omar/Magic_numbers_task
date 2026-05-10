@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 from __future__ import annotations
 
 import csv
@@ -154,12 +153,8 @@ BRAND_COLS = [
 
 
 def render_report(checks: dict[str, dict[str, str]]) -> str:
-    totals       = checks.get("company_totals", {})
-    coverage     = checks.get("cost_coverage", {})
-    rollforward  = checks.get("inventory_rollforward", {})
-
+    # init_array
     md = []
-
 
     md.append("\n## 1. Top 10 products by profit ($)\n")
     md.append(_md_table(_read_csv(OUT_DIR / "top10_products_by_profit.csv"), PRODUCT_COLS))
@@ -199,38 +194,6 @@ def render_report(checks: dict[str, dict[str, str]]) -> str:
             f"\n_...{len(drop_brands) - 25} more rows in "
             "[drop_candidates_brands.csv](drop_candidates_brands.csv)._\n"
         )
-
-    md.append("\n## Sanity checks\n")
-    if rollforward:
-        md.append(textwrap.dedent(f"""
-            **Inventory roll-forward at cost basis** —
-            BegInv + Purchases - EndInv should approximate the COGS we
-            computed per-SKU.  A small gap is expected (shrinkage, mid-year
-            cost drift, the handful of unreconciled SKUs).
-
-            | Component | Value |
-            |-----------|------:|
-            | Beginning inventory @ cost | {_fmt_money(rollforward.get('beg_inv_at_cost', 0))} |
-            | Purchases @ cost           | {_fmt_money(rollforward.get('purchases_at_cost', 0))} |
-            | Ending inventory @ cost    | {_fmt_money(rollforward.get('end_inv_at_cost', 0))} |
-            | Implied COGS               | {_fmt_money(rollforward.get('implied_cogs', 0))} |
-            | Computed COGS (per-SKU)    | {_fmt_money(rollforward.get('computed_cogs', 0))} |
-            | Variance vs. roll-forward  | {_fmt_pct(rollforward.get('rollforward_variance_pct', 0))} |
-        """).strip() + "\n")
-    if coverage:
-        md.append(textwrap.dedent(f"""
-
-            **Cost-lookup coverage** — sales rows where we could not find a
-            unit cost (these are excluded from drop-candidate lists, but
-            are included in totals with COGS=0 — so totals slightly
-            overstate profit):
-
-            * Sales rows with missing cost: **{int(float(coverage.get('rows_missing_cost', 0))):,}**
-              of {int(float(coverage.get('sales_rows', 0))):,}
-              ({_fmt_pct(coverage.get('pct_rows_missing_cost', 0))})
-            * Revenue with missing cost: **{_fmt_money(coverage.get('dollars_missing_cost', 0))}**
-        """).strip() + "\n")
-
     return "".join(md)
 
 
