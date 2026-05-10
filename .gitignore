@@ -1,0 +1,27 @@
+# Generated DuckDB database (rebuilt by `python analysis/run.py`)
+annie.duckdb
+annie.duckdb.wal
+*.duckdb
+*.duckdb.wal
+
+# Generated reports — committing the source CSVs and SQL is enough; the
+# rendered output is reproducible.  Uncomment to ignore reports too if
+# you want a leaner repo.
+# reports/
+
+# Input data — the PwC case-study CSVs are large (~2 GB total) and
+# downloaded by the user, not part of the source we own.
+src/*.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
